@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { z } from "zod";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { useEffect } from "react";
+import { useTheme } from "@/hooks/use-theme";
 
 const signInSchema = z.object({
   email: z.string().trim().email("Enter a valid email").max(255),
@@ -19,9 +19,11 @@ const signUpSchema = signInSchema.extend({
 export default function Auth() {
   const navigate = useNavigate();
   const { user, role, loading } = useAuth();
+  const { theme, toggle: toggleTheme } = useTheme();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [signupRole, setSignupRole] = useState<"student" | "teacher">("student");
   const [busy, setBusy] = useState(false);
@@ -66,16 +68,24 @@ export default function Auth() {
 
   return (
     <main className="min-h-screen paper-bg flex items-center justify-center px-6 py-16">
-      <div className="w-full max-w-md">
-        <Link to="/" className="serif text-2xl text-ink block text-center mb-10">
-          EduGraph<span className="text-terracotta">.</span>
-        </Link>
+      <div className="w-full max-w-md page-enter">
+        <div className="flex items-center justify-between mb-10">
+          <Link to="/" className="serif text-2xl text-ink">
+            EduGraph<span className="text-terracotta">.</span>
+          </Link>
+          <button onClick={toggleTheme} className="theme-toggle" aria-label="Toggle theme">
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
+        </div>
 
-        <div className="border border-rule/60 bg-paper/80 backdrop-blur p-8 md:p-10 shadow-[0_30px_80px_-40px_hsl(var(--paper-shadow))]">
+        <div className="glass-card rounded-xl p-8 md:p-10">
           <p className="eyebrow mb-3 text-center">{mode === "signin" ? "Members Entrance" : "Join the Club"}</p>
-          <h1 className="serif text-4xl text-ink text-center mb-8">
+          <h1 className="serif text-4xl text-ink text-center mb-2">
             {mode === "signin" ? "Welcome back" : "Create account"}
           </h1>
+          <p className="text-center text-sm text-ink-soft mb-8 italic">
+            {mode === "signin" ? "Sign in to access your learning dashboard" : "Start mapping your education journey"}
+          </p>
 
           <form onSubmit={submit} className="space-y-5">
             {mode === "signup" && (
@@ -89,13 +99,13 @@ export default function Auth() {
                         type="button"
                         key={r}
                         onClick={() => setSignupRole(r)}
-                        className={`border px-4 py-3 text-sm capitalize transition-colors ${
+                        className={`border rounded-lg px-4 py-3 text-sm capitalize transition-all duration-300 ${
                           signupRole === r
-                            ? "border-ink bg-ink text-paper"
-                            : "border-rule text-ink hover:border-ink/60"
+                            ? "border-terracotta bg-terracotta/10 text-terracotta font-medium"
+                            : "border-rule text-ink-soft hover:border-ink/40"
                         }`}
                       >
-                        {r}
+                        {r === "student" ? "📚 " : "🎓 "}{r}
                       </button>
                     ))}
                   </div>
@@ -103,14 +113,37 @@ export default function Auth() {
               </>
             )}
             <Field label="Email" type="email" value={email} onChange={setEmail} placeholder="you@university.edu" />
-            <Field label="Password" type="password" value={password} onChange={setPassword} placeholder="••••••••" />
+            <div>
+              <label className="block text-[0.7rem] tracking-[0.28em] uppercase text-ink-soft mb-2">Password</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-transparent border-b border-ink/40 focus:border-terracotta outline-none py-2 text-ink placeholder:text-ink-soft/40 pr-10 transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 text-ink-soft hover:text-ink transition-colors p-1"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? "🙈" : "👁️"}
+                </button>
+              </div>
+            </div>
 
             <button
               type="submit"
               disabled={busy}
-              className="oval-btn w-full justify-center disabled:opacity-50"
+              className="oval-btn oval-btn-solid w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {busy ? "Please wait…" : mode === "signin" ? "Sign In" : "Create Account"}
+              {busy ? (
+                <span className="flex items-center gap-2">
+                  <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" />
+                </span>
+              ) : mode === "signin" ? "Sign In" : "Create Account"}
             </button>
           </form>
 
@@ -118,7 +151,7 @@ export default function Auth() {
             {mode === "signin" ? "New here? " : "Already a member? "}
             <button
               onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-              className="text-terracotta underline-offset-4 hover:underline"
+              className="text-terracotta underline-offset-4 hover:underline font-medium"
             >
               {mode === "signin" ? "Create an account" : "Sign in"}
             </button>
@@ -127,6 +160,12 @@ export default function Auth() {
             Admin access is granted manually by existing admins.
           </p>
         </div>
+
+        <p className="mt-6 text-center text-xs text-ink-soft/60">
+          <Link to="/" className="hover:text-ink transition-colors">← Back to home</Link>
+          {" · "}
+          <Link to="/predictor" className="hover:text-ink transition-colors">Try Predictor</Link>
+        </p>
       </div>
     </main>
   );
@@ -145,7 +184,7 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-transparent border-b border-ink/40 focus:border-ink outline-none py-2 text-ink placeholder:text-ink-soft/40"
+        className="w-full bg-transparent border-b border-ink/40 focus:border-terracotta outline-none py-2 text-ink placeholder:text-ink-soft/40 transition-colors"
       />
     </div>
   );

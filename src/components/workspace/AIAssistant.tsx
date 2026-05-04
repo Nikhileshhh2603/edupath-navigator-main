@@ -17,10 +17,16 @@ export const AIAssistant = ({ topics, mastery, selectedTopic }: Props) => {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
+
+  // Focus input on mount
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   const buildContext = () => {
     const masteryMap = new Map(mastery.map((m) => [m.topic_id, m.mastery]));
@@ -30,6 +36,11 @@ export const AIAssistant = ({ topics, mastery, selectedTopic }: Props) => {
     ];
     if (selectedTopic) lines.push(`Currently focused topic: ${selectedTopic.name} — ${selectedTopic.description ?? ""}`);
     return lines.join("\n");
+  };
+
+  const copyMessage = (content: string) => {
+    navigator.clipboard.writeText(content);
+    toast.success("Copied to clipboard");
   };
 
   const send = async (text: string) => {
@@ -106,74 +117,124 @@ export const AIAssistant = ({ topics, mastery, selectedTopic }: Props) => {
         "What should I study next?",
         "Quiz me on my weakest topic",
         "Give me a 30-min study plan for tonight",
+        "Explain my biggest knowledge gaps",
       ];
 
   return (
     <div className="grid lg:grid-cols-[1fr_280px] gap-6 h-[640px]">
-      <div className="border border-rule/60 bg-paper/70 flex flex-col">
-        <div className="px-6 py-4 border-b border-rule/60 flex items-center justify-between">
-          <p className="eyebrow">AI Study Assistant</p>
+      <div className="glass-card rounded-xl flex flex-col overflow-hidden">
+        <div className="px-6 py-4 border-b border-rule/40 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🤖</span>
+            <p className="eyebrow">AI Study Assistant</p>
+          </div>
           {selectedTopic && (
-            <span className="text-xs text-ink-soft">
-              Focus: <span className="text-terracotta italic">{selectedTopic.name}</span>
+            <span className="badge badge-terracotta">
+              Focus: {selectedTopic.name}
             </span>
           )}
         </div>
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6 space-y-4 custom-scrollbar">
           {messages.length === 0 && (
-            <div className="text-center mt-10">
+            <div className="text-center mt-16">
+              <span className="text-5xl block mb-4">📚</span>
               <p className="serif italic text-3xl text-ink">How can I help you study?</p>
-              <p className="text-sm text-ink-soft mt-3 max-w-md mx-auto">
-                I have context about your knowledge graph, weak topics, and current focus.
+              <p className="text-sm text-ink-soft mt-3 max-w-md mx-auto leading-relaxed">
+                I have context about your knowledge graph, weak topics, and current focus. Ask me anything!
               </p>
+              <div className="mt-8 flex flex-wrap justify-center gap-2">
+                {suggestions.slice(0, 3).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => send(s)}
+                    className="text-xs border border-rule/60 rounded-full px-4 py-2 text-ink-soft hover:border-terracotta hover:text-terracotta transition-all"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           {messages.map((m, i) => (
             <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-[78%] px-4 py-3 text-sm leading-relaxed ${
+                className={`group relative max-w-[78%] px-4 py-3 text-sm leading-relaxed rounded-xl ${
                   m.role === "user"
-                    ? "bg-ink text-paper"
-                    : "bg-paper border border-rule/60 text-ink prose prose-sm max-w-none prose-headings:serif prose-p:my-2 prose-pre:bg-ink prose-pre:text-paper prose-code:text-terracotta"
+                    ? "bg-ink text-paper rounded-br-sm"
+                    : "bg-paper border border-rule/60 text-ink rounded-bl-sm prose prose-sm max-w-none prose-headings:serif prose-p:my-2 prose-pre:bg-ink prose-pre:text-paper prose-code:text-terracotta"
                 }`}
               >
                 {m.role === "assistant" ? <ReactMarkdown>{m.content || "…"}</ReactMarkdown> : m.content}
+                {/* Copy button */}
+                {m.content && (
+                  <button
+                    onClick={() => copyMessage(m.content)}
+                    className="absolute -bottom-6 right-0 opacity-0 group-hover:opacity-100 text-[0.6rem] text-ink-soft hover:text-ink transition-all"
+                  >
+                    📋 Copy
+                  </button>
+                )}
               </div>
             </div>
           ))}
+          {busy && messages[messages.length - 1]?.role === "user" && (
+            <div className="flex justify-start">
+              <div className="bg-paper border border-rule/60 rounded-xl rounded-bl-sm px-4 py-3 flex items-center gap-1.5">
+                <span className="typing-dot" />
+                <span className="typing-dot" />
+                <span className="typing-dot" />
+              </div>
+            </div>
+          )}
         </div>
 
         <form
           onSubmit={(e) => { e.preventDefault(); send(input); }}
-          className="border-t border-rule/60 px-6 py-4 flex items-center gap-3"
+          className="border-t border-rule/40 px-6 py-4 flex items-center gap-3"
         >
           <input
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask anything about your studies…"
             className="flex-1 bg-transparent outline-none text-sm text-ink placeholder:text-ink-soft/50"
           />
-          <button type="submit" disabled={busy || !input.trim()} className="oval-btn disabled:opacity-50">
-            {busy ? "…" : "Send"}
+          <button
+            type="submit"
+            disabled={busy || !input.trim()}
+            className="oval-btn disabled:opacity-30 text-xs px-5 py-2"
+          >
+            {busy ? "…" : "Send →"}
           </button>
         </form>
       </div>
 
-      <aside className="border border-rule/60 bg-paper/70 p-6 overflow-y-auto">
+      <aside className="glass-card rounded-xl p-6 overflow-y-auto custom-scrollbar hidden lg:block">
         <p className="eyebrow mb-4">Try asking</p>
         <ul className="space-y-2">
           {suggestions.map((s) => (
             <li key={s}>
               <button
                 onClick={() => send(s)}
-                className="text-left text-sm text-ink hover:text-terracotta transition-colors"
+                className="text-left text-sm text-ink hover:text-terracotta transition-colors leading-snug"
               >
-                ✦ {s}
+                <span className="text-terracotta mr-1.5">✦</span>{s}
               </button>
             </li>
           ))}
         </ul>
+
+        {messages.length > 0 && (
+          <div className="mt-6 pt-4 border-t border-rule/40">
+            <button
+              onClick={() => setMessages([])}
+              className="text-xs text-ink-soft hover:text-terracotta transition-colors"
+            >
+              🗑️ Clear conversation
+            </button>
+          </div>
+        )}
       </aside>
     </div>
   );

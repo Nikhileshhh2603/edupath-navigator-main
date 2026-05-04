@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduPath — Implementation Plan</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#faf7f2;color:#2a2f23;line-height:1.7;padding:16px;max-width:800px;margin:0 auto}
+h1{font-size:1.8rem;margin:24px 0 8px;color:#2a2f23;border-bottom:2px solid #8b6914;padding-bottom:8px}
+h2{font-size:1.4rem;margin:32px 0 12px;color:#2a2f23;border-bottom:1px solid #c4b896;padding-bottom:6px}
+h3{font-size:1.15rem;margin:20px 0 8px;color:#3d4a2e}
+h4{font-size:1rem;margin:16px 0 6px;color:#6b5a2e}
+p{margin:8px 0}
+ul,ol{margin:8px 0 8px 20px}
+li{margin:4px 0}
+strong{color:#2a2f23}
+em{color:#8b6914}
+code{background:#e8e2d4;padding:2px 6px;border-radius:3px;font-size:0.88em;color:#6b3a1a}
+pre{background:#2a2f23;color:#e8e2d4;padding:14px;border-radius:8px;overflow-x:auto;font-size:0.85em;margin:12px 0;white-space:pre-wrap;word-wrap:break-word}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:0.88em;display:block;overflow-x:auto}
+th,td{border:1px solid #c4b896;padding:8px 10px;text-align:left}
+th{background:#e8e2d4;font-weight:600;white-space:nowrap}
+tr:nth-child(even){background:#f5f0e6}
+hr{border:none;border-top:1px solid #c4b896;margin:28px 0}
+.callout{border-left:4px solid;border-radius:6px;padding:12px 16px;margin:14px 0;font-size:0.92em}
+.important{border-color:#c75b39;background:#fdf2ef}
+.note{border-color:#6b8f4a;background:#f2f7ed}
+.tip{border-color:#8b6914;background:#fdf8ed}
+.callout-label{font-weight:700;text-transform:uppercase;font-size:0.75em;letter-spacing:0.1em;margin-bottom:4px}
+.important .callout-label{color:#c75b39}
+.note .callout-label{color:#6b8f4a}
+.tip .callout-label{color:#8b6914}
+.phase-badge{display:inline-block;background:#3d4a2e;color:#faf7f2;padding:3px 10px;border-radius:12px;font-size:0.75em;font-weight:600;letter-spacing:0.05em;margin-right:6px;vertical-align:middle}
+.timeline{background:#2a2f23;color:#faf7f2;padding:16px 20px;border-radius:10px;text-align:center;margin:16px 0;font-family:monospace;font-size:0.95em;line-height:1.8}
+.tag{display:inline-block;background:#e8e2d4;padding:2px 8px;border-radius:10px;font-size:0.78em;margin:2px;color:#3d4a2e}
+.header-block{text-align:center;padding:30px 16px;border-bottom:2px solid #8b6914;margin-bottom:24px}
+.header-block h1{border:none;font-size:2.2rem;margin:0}
+.header-block .subtitle{color:#6b5a2e;font-size:1rem;margin-top:6px;font-style:italic}
+.header-block .date{color:#9a8e78;font-size:0.8rem;margin-top:10px}
+.emoji{font-size:1.1em}
+@media(max-width:600px){body{padding:12px;font-size:15px}h1{font-size:1.5rem}h2{font-size:1.25rem}table{font-size:0.82em}th,td{padding:6px 8px}}
+</style>
+</head>
+<body>
+
+<div class="header-block">
+<h1>EduPath</h1>
+<div class="subtitle">Complete Implementation Plan</div>
+<div class="subtitle">From Demo → Production College Mentoring Platform</div>
+<div class="date">Version 1.0 · May 2026</div>
+</div>
+
+<div class="callout important">
+<div class="callout-label">Important</div>
+This is a <strong>large-scale transformation</strong> from a demo landing page into a production college mentoring app. Organized into <strong>4 phases</strong> that ship incrementally. Each phase builds on the last and is independently deployable.
+</div>
+
+<hr>
+
+<h2>What We Have Today</h2>
+<table>
+<tr><th>Layer</th><th>Current State</th></tr>
+<tr><td><strong>Auth</strong></td><td>Supabase email/password, roles: admin, teacher, student</td></tr>
+<tr><td><strong>DB Tables</strong></td><td>subjects, topics, student_topic_mastery, assessments, chat_conversations, chat_messages, profiles, user_roles</td></tr>
+<tr><td><strong>Frontend</strong></td><td>Landing page, Auth page, Student Workspace (graph + risk + AI chat), Predictor page, basic Teacher/Admin dashboards</td></tr>
+<tr><td><strong>Knowledge Graph</strong></td><td>Canvas-based (workspace) + D3 force-directed (predictor), both with zoom/pan</td></tr>
+<tr><td><strong>AI</strong></td><td>Supabase Edge Function ai-tutor with streaming</td></tr>
+<tr><td><strong>Curriculum</strong></td><td>Hardcoded CS curriculum + DB-seeded topics</td></tr>
+</table>
+
+<h3>What's Missing</h3>
+<ul>
+<li>No semester system or department structure</li>
+<li>No mentor-student assignment system</li>
+<li>No notes/resources attached to topics</li>
+<li>No parent role</li>
+<li>No task/assignment management</li>
+<li>No attendance tracking or CGPA system</li>
+<li>No mentoring session management</li>
+<li>No student pulse/wellness check</li>
+<li>No proactive "what to study next" AI</li>
+<li>No notifications or announcements</li>
+<li>Teacher/Admin dashboards are placeholder cards</li>
+</ul>
+
+<hr>
+
+<h2>Confirmed Decisions</h2>
+
+<h3><span class="emoji">🏷️</span> Branding</h3>
+<p>Keep as <strong>"EduPath"</strong> — tagline: "EduPath — Intelligent College Mentoring"</p>
+
+<h3><span class="emoji">🏛️</span> College Structure</h3>
+<p><strong>B.Tech — 4 years, 8 semesters</strong> (2 per year)</p>
+<p><strong>8 Departments:</strong></p>
+<ol>
+<li>Computer Science (CS)</li>
+<li>Computer Science — AIML</li>
+<li>Computer Science — Cyber Security</li>
+<li>Computer Science — Data Science</li>
+<li>Electronics &amp; Communication Engineering (ECE)</li>
+<li>Electrical &amp; Electronics Engineering (EEE)</li>
+<li>Civil Engineering</li>
+<li>Mechanical Engineering</li>
+</ol>
+<p>ECE syllabus will be provided to seed the first curriculum.</p>
+
+<h3><span class="emoji">👥</span> Role System</h3>
+<p>Current: <code>admin | teacher | student</code><br>
+New: <code>admin | teacher | student | parent</code><br>
+Parents linked to students via a <code>parent_student_links</code> table</p>
+
+<h3><span class="emoji">📅</span> Semester-Based Data</h3>
+<p>All academic data scoped to a semester entity with <code>start_date</code>, <code>end_date</code>, <code>is_active</code>. Enables the <strong>"Time Machine"</strong> archival feature.</p>
+
+<h3><span class="emoji">💰</span> No Paid APIs</h3>
+<ul>
+<li>AI mentoring: <strong>manual transcript paste</strong> (no Whisper)</li>
+<li>AI chat: existing Supabase Edge Function (free tier)</li>
+<li>No external paid services required</li>
+</ul>
+
+<h3><span class="emoji">🔔</span> Notifications</h3>
+<ul>
+<li><strong>Phase 1:</strong> In-app notifications only (free)</li>
+<li><strong>Phase 2:</strong> Email via Resend free tier (100 emails/day)</li>
+<li><strong>Future:</strong> WhatsApp Business API (deferred — requires paid plan)</li>
+</ul>
+
+<h3><span class="emoji">📝</span> Data Entry</h3>
+<p>No existing student data — build <strong>Admin UI for manual entry</strong>.</p>
+
+<h3><span class="emoji">📚</span> Notes System</h3>
+<p>Rich-text markdown stored per-topic. Teachers create/edit; students view. Powers the <strong>"Click-to-Notes"</strong> knowledge graph feature.</p>
+
+<hr>
+
+<!-- PHASE 1 -->
+<h2><span class="phase-badge">PHASE 1</span> Core College Infrastructure</h2>
+<p><em>Estimated: ~3-4 days</em></p>
+
+<div class="callout important">
+<div class="callout-label">Important</div>
+This phase establishes the database backbone. Everything else builds on this.
+</div>
+
+<h3>1.1 New Database Tables</h3>
+<table>
+<tr><th>Table</th><th>Purpose</th><th>Key Columns</th></tr>
+<tr><td><code>departments</code></td><td>8 college departments</td><td>id, name, code ("CS", "ECE")</td></tr>
+<tr><td><code>semesters</code></td><td>Semester definitions</td><td>id, name, start_date, end_date, is_active, year, department_id</td></tr>
+<tr><td><code>semester_subjects</code></td><td>Subjects per semester</td><td>semester_id, subject_id, teacher_id</td></tr>
+<tr><td><code>mentor_assignments</code></td><td><strong>Teacher ↔ student mapping</strong></td><td>mentor_id, student_id, semester_id</td></tr>
+<tr><td><code>topic_notes</code></td><td>Markdown notes per topic</td><td>topic_id, title, content, created_by</td></tr>
+<tr><td><code>attendance</code></td><td>Daily attendance</td><td>user_id, subject_id, date, status</td></tr>
+<tr><td><code>assignments</code></td><td>Tasks from teachers</td><td>id, title, subject_id, due_date, type</td></tr>
+<tr><td><code>assignment_submissions</code></td><td>Student submissions</td><td>assignment_id, user_id, status, grade</td></tr>
+<tr><td><code>cgpa_records</code></td><td>CGPA snapshots</td><td>user_id, semester_id, sgpa, cgpa</td></tr>
+<tr><td><code>parent_student_links</code></td><td>Parent → student</td><td>parent_id, student_id</td></tr>
+<tr><td><code>student_sections</code></td><td>Section/batch</td><td>user_id, semester_id, section, batch_year</td></tr>
+<tr><td><code>pulse_checks</code></td><td><strong>Weekly wellness rating</strong></td><td>user_id, rating (1-5), note, week_of</td></tr>
+<tr><td><code>announcements</code></td><td><strong>Notices board</strong></td><td>id, title, body, department_id, pinned</td></tr>
+</table>
+
+<h3>1.2 Modified Tables</h3>
+<table>
+<tr><th>Table</th><th>Change</th></tr>
+<tr><td><code>subjects</code></td><td>Add department_id FK, code ("CS301")</td></tr>
+<tr><td><code>topics</code></td><td>Add semester_id FK, order_index</td></tr>
+<tr><td><code>user_roles</code></td><td>Add "parent" to app_role enum</td></tr>
+<tr><td><code>profiles</code></td><td>Add enrollment_number, department_id, batch_year, phone, section</td></tr>
+</table>
+
+<h3>1.3 Route Structure</h3>
+<pre>
+/ → Landing page
+/auth → Login/Signup (with parent role)
+
+STUDENT
+  /student → Dashboard
+  /student/graph → Knowledge Graph (click-to-notes)
+  /student/risk → Risk Analyzer
+  /student/ai → AI Assistant + Study Path
+  /student/tasks → Assignment Hub
+  /student/notes/:topicId → Notes Viewer
+  /student/attendance → Attendance
+  /student/pulse → Weekly Pulse Check
+
+TEACHER
+  /teacher → Dashboard
+  /teacher/roster → Risk-sorted Roster
+  /teacher/mentees → My Mentees
+  /teacher/mentoring → Session Hub
+  /teacher/mentoring/:studentId → Student Detail
+  /teacher/assignments → Assignment Manager
+  /teacher/graph → Class Graph + Predictor
+  /teacher/announcements → Post Notices
+
+ADMIN
+  /admin → Dashboard
+  /admin/users → User Management
+  /admin/departments → Department Manager
+  /admin/semesters → Semester Manager
+  /admin/mentors → Mentor Assignments
+  /admin/heatmap → Struggle Heatmap
+  /admin/announcements → Global Notices
+
+PARENT
+  /parent → Dashboard
+  /parent/child/:id → Child Progress
+</pre>
+
+<h3>1.4 Shared Layout Components</h3>
+<ul>
+<li><strong>AppShell</strong> — Sidebar + header for all dashboards</li>
+<li><strong>Sidebar</strong> — Role-aware navigation with department badge</li>
+<li><strong>SemesterPicker</strong> — Switch semester (powers Time Machine)</li>
+<li><strong>DepartmentBadge</strong> — Shows user's department</li>
+<li><strong>BreadcrumbBar</strong> — Context-aware breadcrumbs</li>
+</ul>
+
+<h3>1.4 Seed Data</h3>
+<ul>
+<li>Pre-seed all <strong>8 departments</strong></li>
+<li>Pre-seed <strong>8 semester templates</strong> (Sem 1–8)</li>
+<li>ECE curriculum from user-provided syllabus</li>
+<li>Other departments start empty (admin adds via UI)</li>
+</ul>
+
+<hr>
+
+<!-- PHASE 2 -->
+<h2><span class="phase-badge">PHASE 2</span> Teacher &amp; Mentoring Experience</h2>
+<p><em>Estimated: ~3-4 days</em></p>
+
+<div class="callout important">
+<div class="callout-label">Important</div>
+<strong>Mentoring is the core identity of EduPath.</strong> This phase comes before student features because the mentoring infrastructure defines the student experience.
+</div>
+
+<h3>2.1 Mentor-Student Assignment System</h3>
+<ul>
+<li>Admin assigns mentors to students via <code>/admin/mentors</code></li>
+<li>Each teacher sees assigned mentees on <code>/teacher/mentees</code></li>
+<li><strong>Mentee Card:</strong> Photo, name, department, semester, risk score, last pulse check, last session date</li>
+<li>Teachers can view any mentee's full profile: graph, attendance, assignments, CGPA</li>
+</ul>
+
+<h3>2.2 AI Mentoring Suite</h3>
+
+<div class="callout note">
+<div class="callout-label">Note</div>
+No paid APIs. Session notes are <strong>manual text entry/paste</strong>. AI summarization uses the existing free Supabase Edge Function.
+</div>
+
+<h4>New Tables</h4>
+<table>
+<tr><th>Table</th><th>Purpose</th></tr>
+<tr><td><code>mentoring_sessions</code></td><td>mentor_id, student_id, scheduled_at, status, transcript, ai_summary, action_items</td></tr>
+<tr><td><code>mentoring_notes</code></td><td>session_id, note_text, created_by</td></tr>
+</table>
+
+<h4>UI Components</h4>
+<ul>
+<li><strong>Pre-Session Briefing Card:</strong> AI generates a briefing from recent mastery changes, missed assignments, attendance dips, prior session notes, pulse check trends</li>
+<li><strong>Session Notes Entry:</strong> Rich text area for typing/pasting session notes</li>
+<li><strong>Post-Session AI Summary:</strong> AI analyzes notes → generates summary + action items (saved to DB)</li>
+<li><strong>Session History Timeline:</strong> All past sessions with a student, searchable</li>
+</ul>
+
+<h3>2.3 Teacher Dashboard — Class Intelligence</h3>
+<ul>
+<li><strong>Risk-Sorted Roster:</strong> All students sorted by risk score, with sparklines</li>
+<li><strong>Pulse Check Overview:</strong> See all students' latest pulse ratings (🔴🟡🟢)</li>
+<li><strong>Subject Mastery Heatmap:</strong> Grid of student × topic, color-coded</li>
+<li><strong>Assignment Manager:</strong> Create/edit, view submissions, grade in bulk</li>
+<li><strong>Announcements:</strong> Post per-department or per-semester notices</li>
+</ul>
+
+<h3>2.4 Context-Aware Intervention Plans</h3>
+<p>When risk score &gt; threshold OR pulse check drops below 3:</p>
+<ul>
+<li>System auto-generates a concrete intervention plan</li>
+<li>Specific topics to review (from topic notes)</li>
+<li>Suggested study schedule for the next 2 weeks</li>
+<li>Recommended resources</li>
+<li>Teacher can approve/edit/send as in-app notification</li>
+</ul>
+
+<h3>2.5 Predictor (Absorbed)</h3>
+<p>The standalone predictor page becomes a tool inside <code>/teacher/graph</code>. Teachers can run "what-if" scenarios on any student's data.</p>
+
+<hr>
+
+<!-- PHASE 3 -->
+<h2><span class="phase-badge">PHASE 3</span> Student Experience &amp; Click-to-Notes</h2>
+<p><em>Estimated: ~3-4 days</em></p>
+
+<h3>3.1 Knowledge Graph — Click-to-Notes</h3>
+<p>Clicking a node opens a <strong>slide-out panel</strong> with:</p>
+<ul>
+<li>Topic name, difficulty, mastery arc</li>
+<li><span class="emoji">📝</span> <strong>Study Notes</strong> tab — rendered markdown</li>
+<li><span class="emoji">📊</span> <strong>My Progress</strong> tab — mastery history chart</li>
+<li><span class="emoji">🔗</span> <strong>Prerequisites</strong> — clickable links to prereq nodes</li>
+<li><span class="emoji">🤖</span> <strong>Ask AI</strong> — context-aware question input</li>
+</ul>
+<p>Teachers see an <strong>"Edit Notes"</strong> button that opens a markdown editor.</p>
+
+<h3>3.2 Proactive AI Study Path</h3>
+<p>AI analyzes the knowledge graph topology and suggests:</p>
+<ul>
+<li>"Study <strong>Hash Tables</strong> next — it unlocks 4 downstream topics"</li>
+<li>"Your weakest prereq chain is: Logic → Sets → Combinatorics. Start with Logic."</li>
+</ul>
+<p>Shown as a <strong>"What to Study Next"</strong> card on the dashboard. Uses graph traversal + mastery data (runs client-side, no API needed).</p>
+
+<h3>3.3 Dynamic Semester System</h3>
+<ul>
+<li>Semester picker in the header</li>
+<li>Knowledge graph, subjects, mastery all filter by selected semester</li>
+<li><strong>Time Machine toggle:</strong> Switch to past semesters → frozen mastery data</li>
+</ul>
+
+<h3>3.4 Weekly Pulse Check</h3>
+<p>Simple widget: "How's studying going this week?"</p>
+<p>5 emoji options: 😫 😟 😐 🙂 😄</p>
+<p>Optional short note. Mentor sees aggregated pulse data on their dashboard.</p>
+
+<h3>3.5 Assignment &amp; Task Hub</h3>
+<ul>
+<li>All pending assignments, sorted by due date</li>
+<li>Status badges: Pending / Submitted / Overdue / Graded</li>
+<li>Grouped by subject with progress bars</li>
+<li>Quick-submit button (mark done + optional file link)</li>
+</ul>
+
+<h3>3.6 Attendance Dashboard</h3>
+<ul>
+<li>Calendar heatmap showing present/absent/late days</li>
+<li>Subject-wise percentages with threshold warnings (&lt; 75%)</li>
+<li>Trend line showing trajectory</li>
+</ul>
+
+<h3>3.7 Announcements Feed</h3>
+<p>Students see relevant announcements filtered by department + semester. Pinned ones stay at top.</p>
+
+<h3>3.8 AI Study Aid Generator</h3>
+<ul>
+<li>On any topic note: "Generate Quiz" / "Generate Flashcards" / "Summarize"</li>
+<li>Uses AI edge function with note content as context</li>
+<li>Interactive flashcard UI with flip animations</li>
+</ul>
+
+<hr>
+
+<!-- PHASE 4 -->
+<h2><span class="phase-badge">PHASE 4</span> Admin, Parent &amp; Advanced Features</h2>
+<p><em>Estimated: ~3-4 days</em></p>
+
+<h3>4.1 Admin Dashboard</h3>
+<ul>
+<li><strong>KPI Cards:</strong> Total students, avg CGPA, avg attendance, high-risk count</li>
+<li><strong>Semester Manager:</strong> Create semesters, assign subjects, bulk import attendance/CGPA</li>
+<li><strong>User Manager:</strong> View all users, assign roles, link parents to students</li>
+<li><strong>Resource Allocation Heatmap:</strong> Topics where &gt;40% of students scored &lt;50% mastery</li>
+</ul>
+
+<h3>4.2 Parent Dashboard</h3>
+<ul>
+<li><strong>Child Progress:</strong> CGPA trend, attendance %, risk score, upcoming deadlines</li>
+<li><strong>Weekly Learning Stories:</strong> Auto-generated summary via email (Resend free tier)</li>
+<li>Example: "This week, Aarav mastered 3 topics in Data Structures but missed 2 classes in OS. Risk score: 45 → 38."</li>
+<li><strong>Read-only access:</strong> Knowledge graph, attendance calendar, assignment status</li>
+</ul>
+
+<h3>4.3 Career Readiness Checklist (Simplified)</h3>
+<ul>
+<li>Simple checklist per career track (e.g., "Data Scientist")</li>
+<li>Shows: required topics (✅/❌), minimum CGPA (✅/❌), skills needed</li>
+<li>Clean progress card — no complex graph overlay</li>
+</ul>
+
+<h3>4.4 Coding Log (Simplified)</h3>
+<ul>
+<li>Simple manual daily log: "I solved 3 LeetCode problems today"</li>
+<li>Dashboard shows streak counter + weekly chart</li>
+<li>No API integrations (kept simple and free)</li>
+</ul>
+
+<h3>4.5 Extracurricular Profile (Simplified)</h3>
+<ul>
+<li>Simple list on student profile: event name, date, type</li>
+<li>Portfolio section — no complex tracking</li>
+</ul>
+
+<hr>
+
+<h2>Tech Stack Additions</h2>
+<table>
+<tr><th>Need</th><th>Tool</th><th>Cost</th></tr>
+<tr><td>Rich text notes editor</td><td>@uiw/react-md-editor</td><td>Free</td></tr>
+<tr><td>Calendar heatmap</td><td>Custom SVG component</td><td>Free</td></tr>
+<tr><td>Email notifications</td><td>Supabase + Resend</td><td>Free (100/day)</td></tr>
+<tr><td>PWA support</td><td>vite-plugin-pwa</td><td>Free</td></tr>
+<tr><td>PDF export</td><td>html2pdf.js</td><td>Free</td></tr>
+</table>
+
+<div class="callout tip">
+<div class="callout-label">Tip</div>
+<strong>Everything in this plan is achievable with $0 in external costs</strong> using Supabase free tier + Resend free tier. WhatsApp/SMS can be added later with a paid provider.
+</div>
+
+<hr>
+
+<h2>Execution Order</h2>
+<div class="timeline">
+Phase 1 ──→ Phase 2 ──→ Phase 3 ──→ Phase 4<br>
+(Core) &nbsp;&nbsp; (Mentoring) &nbsp; (Student) &nbsp;&nbsp; (Admin+)<br>
+3-4 days &nbsp; 3-4 days &nbsp;&nbsp; 3-4 days &nbsp;&nbsp; 3-4 days
+</div>
+
+<p><strong>Mentoring before Student features</strong> — because mentoring is EduPath's core identity. The mentor infrastructure defines what students see (notes, interventions, pulse checks). After Phase 2, teachers can immediately start mentoring. Phase 3 builds student tools that respond to mentoring inputs.</p>
+
+<hr>
+<p style="text-align:center;color:#9a8e78;font-size:0.85em;margin-top:30px">
+EduPath — Intelligent College Mentoring · Implementation Plan v1.0 · May 2026
+</p>
+
+</body>
+</html>

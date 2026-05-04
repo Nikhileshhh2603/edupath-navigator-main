@@ -1,7 +1,9 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { SUBJECTS, SubjectKey } from "@/lib/curriculum-data";
 import { KnowledgeGraph } from "@/components/predictor/KnowledgeGraph";
 import { RiskDashboard, RiskInputs } from "@/components/predictor/RiskDashboard";
+import { useTheme } from "@/hooks/use-theme";
 import paperTexture from "@/assets/paper-texture.jpg";
 
 const paperStyle = { ["--paper-img" as string]: `url(${paperTexture})` } as React.CSSProperties;
@@ -15,6 +17,7 @@ const SUBJECT_OPTIONS: { key: SubjectKey; label: string; icon: string }[] = [
 ];
 
 export default function Predictor() {
+  const { theme, toggle: toggleTheme } = useTheme();
   // ── Form state ──────────────────────────────────────────────────
   const [studentName, setStudentName] = useState("");
   const [subjectKey, setSubjectKey] = useState<SubjectKey>("ml");
@@ -64,18 +67,23 @@ export default function Predictor() {
       <div className="border-b border-rule/40 bg-paper/85 backdrop-blur-md sticky top-0 z-20">
         <div className="max-w-[1600px] mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <a href="/" className="text-ink-soft hover:text-ink transition-colors text-sm editorial-link pb-0">← EduGraph</a>
+            <Link to="/" className="text-ink-soft hover:text-ink transition-colors text-sm editorial-link pb-0">← EduGraph</Link>
             <span className="text-ink-soft/40">/</span>
             <span className="text-sm font-semibold text-ink">Student Risk Predictor</span>
           </div>
-          {analyzed && (
-            <button
-              onClick={handleReset}
-              className="oval-btn py-1.5 px-4 text-xs tracking-widest"
-            >
-              ← New Analysis
+          <div className="flex items-center gap-3">
+            <button onClick={toggleTheme} className="theme-toggle" aria-label="Toggle theme">
+              {theme === "dark" ? "☀️" : "🌙"}
             </button>
-          )}
+            {analyzed && (
+              <button
+                onClick={handleReset}
+                className="oval-btn py-1.5 px-4 text-xs tracking-widest"
+              >
+                ← New Analysis
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import heroImg from "@/assets/student-hero.jpg";
 import notebookImg from "@/assets/notebook.jpg";
@@ -10,6 +11,7 @@ import handwrittenGraph from "@/assets/handwritten-graph.jpg";
 import campusWalk from "@/assets/campus-walk.jpg";
 import handwriting from "@/assets/handwriting.jpg";
 import { useReveal } from "@/hooks/use-reveal";
+import { useTheme } from "@/hooks/use-theme";
 
 const paperStyle = { ["--paper-img" as string]: `url(${paperTexture})` } as React.CSSProperties;
 
@@ -37,11 +39,14 @@ const Editorial = ({ text, className = "", baseDelay = 0 }: { text: string; clas
 /* ---------- Nav ---------- */
 const Nav = () => {
   const [scrolled, setScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const { theme, toggle: toggleTheme } = useTheme();
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+  const navItems: [string, string][] = [["Manifesto","manifesto"],["Graph","graph"],["Risk","risk"],["Assistant","assistant"],["Journal","journal"]];
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
@@ -57,12 +62,40 @@ const Nav = () => {
           EduGraph<span className="text-terracotta">.</span>
         </a>
         <nav className="hidden md:flex items-center gap-10 text-[0.7rem] uppercase tracking-[0.28em] text-ink-soft">
-          {[["Manifesto","manifesto"],["Graph","graph"],["Risk","risk"],["Assistant","assistant"],["Journal","journal"]].map(([l, id]) => (
+          {navItems.map(([l, id]) => (
             <a key={id} href={`#${id}`} onClick={(e) => { e.preventDefault(); scrollTo(id); }} className="hover:text-ink transition-colors">{l}</a>
           ))}
+          <Link to="/predictor" className="hover:text-ink transition-colors">Predictor</Link>
         </nav>
-        <a href="/auth" className="oval-btn">Sign In</a>
+        <div className="flex items-center gap-3">
+          <button onClick={toggleTheme} className="theme-toggle" aria-label="Toggle theme" title={theme === "dark" ? "Switch to light" : "Switch to dark"}>
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
+          <Link to="/auth" className="oval-btn hidden md:inline-flex">Sign In</Link>
+          {/* Mobile hamburger */}
+          <button
+            className="md:hidden flex flex-col gap-1.5 p-2"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label="Toggle menu"
+          >
+            <span className={`block w-5 h-0.5 bg-ink transition-all duration-300 ${mobileOpen ? "rotate-45 translate-y-2" : ""}`} />
+            <span className={`block w-5 h-0.5 bg-ink transition-all duration-300 ${mobileOpen ? "opacity-0" : ""}`} />
+            <span className={`block w-5 h-0.5 bg-ink transition-all duration-300 ${mobileOpen ? "-rotate-45 -translate-y-2" : ""}`} />
+          </button>
+        </div>
       </div>
+      {/* Mobile menu */}
+      {mobileOpen && (
+        <div className="md:hidden menu-slide-down border-t border-rule/40 bg-paper/95 backdrop-blur-md">
+          <nav className="flex flex-col gap-1 px-6 py-4 text-[0.75rem] uppercase tracking-[0.28em] text-ink-soft">
+            {navItems.map(([l, id]) => (
+              <a key={id} href={`#${id}`} onClick={(e) => { e.preventDefault(); scrollTo(id); setMobileOpen(false); }} className="hover:text-ink transition-colors py-2">{l}</a>
+            ))}
+            <Link to="/predictor" className="hover:text-ink transition-colors py-2" onClick={() => setMobileOpen(false)}>Predictor</Link>
+            <Link to="/auth" className="oval-btn mt-3 text-center" onClick={() => setMobileOpen(false)}>Sign In</Link>
+          </nav>
+        </div>
+      )}
     </header>
   );
 };
@@ -289,9 +322,9 @@ const FeatureRow = ({
             {title} <em className="italic text-terracotta block">{italicWord}</em>
           </h2>
           <p className="text-ink-soft leading-relaxed text-[1.05rem]">{body}</p>
-          <button onClick={() => toast(`${title} ${italicWord} — preview`, { description: "Full module unlocks for beta members." })} className="oval-btn mt-10">
+          <Link to="/predictor" className="oval-btn mt-10">
             Explore →
-          </button>
+          </Link>
         </div>
       </div>
     </section>
@@ -342,9 +375,9 @@ const Journal = () => {
               <em className="italic text-terracotta">Better Studying.</em>
             </h2>
           </div>
-          <button onClick={() => toast("Journal launching with beta.")} className="oval-btn hidden md:inline-block">
-            All Entries
-          </button>
+          <Link to="/auth" className="oval-btn hidden md:inline-block">
+            All Entries →
+          </Link>
         </div>
         <div className="grid md:grid-cols-3 gap-10">
           {[
@@ -444,12 +477,12 @@ const CTA = () => {
           Join the first cohort of students mapping their education with intent.
         </p>
         <div className="mt-12 flex flex-wrap items-center justify-center gap-4 reveal">
-          <button onClick={() => { scrollTo("top"); toast.success("Drop your email at the top to get started."); }} className="oval-btn oval-btn-solid">
+          <Link to="/auth" className="oval-btn oval-btn-solid">
             Get Started
-          </button>
-          <button onClick={() => toast("Demo video drops next week.", { description: "We'll email you the link." })} className="oval-btn">
-            Watch Demo
-          </button>
+          </Link>
+          <Link to="/predictor" className="oval-btn">
+            Try Predictor →
+          </Link>
         </div>
       </div>
     </section>
@@ -478,8 +511,8 @@ const Footer = () => (
         <p className="eyebrow mb-5">Company</p>
         <ul className="space-y-2 text-sm text-ink-soft">
           <li><a href="#journal" onClick={(e) => { e.preventDefault(); scrollTo("journal"); }} className="hover:text-ink">Journal</a></li>
-          <li><button onClick={() => toast("Faculty onboarding opens Q3.")} className="hover:text-ink">For Faculty</button></li>
-          <li><button onClick={() => toast("hello@edugraph.studio")} className="hover:text-ink">Contact</button></li>
+          <li><Link to="/auth" className="hover:text-ink">For Faculty</Link></li>
+          <li><a href="mailto:hello@edugraph.studio" className="hover:text-ink">Contact</a></li>
         </ul>
       </div>
     </div>

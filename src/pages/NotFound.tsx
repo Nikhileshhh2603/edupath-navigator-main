@@ -1,24 +1,28 @@
-import { useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { Link } from "react-router-dom";
 
-const NotFound = () => {
-  const location = useLocation();
-
-  useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
-  }, [location.pathname]);
-
+export default function NotFound() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">404</h1>
-        <p className="mb-4 text-xl text-muted-foreground">Oops! Page not found</p>
-        <a href="/" className="text-primary underline hover:text-primary/90">
-          Return to Home
-        </a>
+    <main className="min-h-screen paper-bg flex items-center justify-center px-6">
+      <div className="text-center page-enter">
+        <p className="eyebrow mb-6">Error 404</p>
+        <h1 className="serif text-7xl md:text-[10rem] text-ink leading-[0.85]">
+          Lost<span className="text-terracotta italic"> Page.</span>
+        </h1>
+        <p className="mt-8 text-ink-soft max-w-md mx-auto leading-relaxed italic">
+          This page doesn't exist — but your study path does. Let's get you back on track.
+        </p>
+        <div className="mt-10 flex flex-wrap justify-center gap-4">
+          <Link to="/" className="oval-btn oval-btn-solid">
+            Back Home
+          </Link>
+          <Link to="/auth" className="oval-btn">
+            Sign In
+          </Link>
+          <Link to="/predictor" className="oval-btn">
+            Try Predictor
+          </Link>
+        </div>
       </div>
-    </div>
+    </main>
   );
-};
-
-export default NotFound;
+}
