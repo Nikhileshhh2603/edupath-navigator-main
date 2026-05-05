@@ -15,13 +15,18 @@ export const KnowledgeGraph = ({ topics, subjects, mastery, onSelect, selectedId
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<string | null>(null);
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const [filterSubject, setFilterSubject] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [controlsOpen, setControlsOpen] = useState(true);
   const masteryMap = useMemo(() => new Map(mastery.map((m) => [m.topic_id, m.mastery])), [mastery]);
   const subjectMap = useMemo(() => new Map(subjects.map((s) => [s.id, s])), [subjects]);
+  const reducedMotion = useMemo(() => window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false, []);
+  const animRef = useRef<{ raf: number | null; t0: number; settlingUntil: number }>({ raf: null, t0: 0, settlingUntil: 0 });
 
   // Cluster nodes by subject in concentric arcs.
   const nodes = useMemo<Node[]>(() => {
@@ -91,7 +96,74 @@ export const KnowledgeGraph = ({ topics, subjects, mastery, onSelect, selectedId
     return { nodes: arr, links };
   }, [nodes]);
 
-  const draw = useCallback(() => {
+  const computeLayout = useCallback((w: number, h: number) => {
+    const xs = positioned.nodes.map((n) => n.x);
+    const ys = positioned.nodes.map((n) => n.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const pad = 60;
+    const sx = (w - pad * 2) / (maxX - minX || 1);
+    const sy = (h - pad * 2) / (maxY - minY || 1);
+    const s = Math.min(sx, sy);
+    const ox = pad - minX * s + (w - pad * 2 - (maxX - minX) * s) / 2;
+    const oy = pad - minY * s + (h - pad * 2 - (maxY - minY) * s) / 2;
+    const px = (n: Node) => ({ x: n.x * s + ox, y: n.y * s + oy });
+    return { px, s, ox, oy };
+  }, [positioned.nodes]);
+
+  const hitTest = useCallback((clientX: number, clientY: number) => {
+    const canvas = canvasRef.current;
+    const wrap = wrapRef.current;
+    if (!canvas || !wrap) return null;
+    const rect = canvas.getBoundingClientRect();
+    const mx = (clientX - rect.left - pan.x) / zoom;
+    const my = (clientY - rect.top - pan.y) / zoom;
+    const { px } = computeLayout(wrap.clientWidth, wrap.clientHeight);
+    for (const n of positioned.nodes) {
+      const p = px(n);
+      const r = 14 + n.topic.difficulty * 1.6 + 8;
+      if ((p.x - mx) ** 2 + (p.y - my) ** 2 <= r * r) return n;
+    }
+    return null;
+  }, [computeLayout, positioned.nodes, pan.x, pan.y, zoom]);
+
+  const animateTo = useCallback((targetPan: { x: number; y: number }, targetZoom: number) => {
+    if (reducedMotion) {
+      setPan(targetPan);
+      setZoom(targetZoom);
+      return;
+    }
+    const start = performance.now();
+    const fromPan = { ...pan };
+    const fromZoom = zoom;
+    const dur = 420;
+    const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+    const step = (now: number) => {
+      const tt = Math.min(1, (now - start) / dur);
+      const k = ease(tt);
+      setPan({ x: fromPan.x + (targetPan.x - fromPan.x) * k, y: fromPan.y + (targetPan.y - fromPan.y) * k });
+      setZoom(fromZoom + (targetZoom - fromZoom) * k);
+      if (tt < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, [pan, zoom, reducedMotion]);
+
+  const focusTopic = useCallback((topicId: string) => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const node = positioned.nodes.find((n) => n.id === topicId);
+    if (!node) return;
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    const { px } = computeLayout(w, h);
+    const p = px(node);
+    // Center node in view, keep zoom (or slightly zoom in if very far out).
+    const nextZoom = Math.max(zoom, 1);
+    const targetPan = { x: w / 2 - p.x * nextZoom, y: h / 2 - p.y * nextZoom };
+    animateTo(targetPan, nextZoom);
+    animRef.current.settlingUntil = performance.now() + 700;
+  }, [animateTo, computeLayout, positioned.nodes, zoom]);
+
+  const draw = useCallback((now = performance.now()) => {
     const canvas = canvasRef.current!;
     const wrap = wrapRef.current!;
     if (!canvas || !wrap) return;
@@ -111,17 +183,7 @@ export const KnowledgeGraph = ({ topics, subjects, mastery, onSelect, selectedId
     ctx.scale(zoom, zoom);
 
     // Fit graph
-    const xs = positioned.nodes.map((n) => n.x);
-    const ys = positioned.nodes.map((n) => n.y);
-    const minX = Math.min(...xs), maxX = Math.max(...xs);
-    const minY = Math.min(...ys), maxY = Math.max(...ys);
-    const pad = 60;
-    const sx = (w - pad * 2) / (maxX - minX || 1);
-    const sy = (h - pad * 2) / (maxY - minY || 1);
-    const s = Math.min(sx, sy);
-    const ox = pad - minX * s + (w - pad * 2 - (maxX - minX) * s) / 2;
-    const oy = pad - minY * s + (h - pad * 2 - (maxY - minY) * s) / 2;
-    const px = (n: Node) => ({ x: n.x * s + ox, y: n.y * s + oy });
+    const { px } = computeLayout(w, h);
 
     // Check if a node is related to hover/selected
     const isRelated = (nodeId: string) => {
@@ -141,7 +203,8 @@ export const KnowledgeGraph = ({ topics, subjects, mastery, onSelect, selectedId
                    selectedId === nA.id || selectedId === nB.id;
       const dimmed = (filterSubject && nA.topic.subject_id !== filterSubject && nB.topic.subject_id !== filterSubject);
 
-      ctx.lineWidth = isHi ? 2 : 1;
+      const pulse = reducedMotion ? 0 : (0.5 + 0.5 * Math.sin((now - animRef.current.t0) / 260));
+      ctx.lineWidth = isHi ? 2.2 + pulse * 0.6 : 1;
       ctx.strokeStyle = dimmed ? "hsl(40 15% 25% / 0.06)" :
         isHi ? "hsl(15 65% 50% / 0.7)" : "hsl(40 15% 25% / 0.18)";
       ctx.beginPath();
@@ -170,7 +233,8 @@ export const KnowledgeGraph = ({ topics, subjects, mastery, onSelect, selectedId
       const isHover = hover === n.id, isSel = selectedId === n.id;
       const related = isRelated(n.id);
       const dimmed = filterSubject && n.topic.subject_id !== filterSubject;
-      const r = 14 + n.topic.difficulty * 1.6 + (isHover || isSel ? 4 : related ? 2 : 0);
+      const pulse = reducedMotion ? 0 : (0.5 + 0.5 * Math.sin((now - animRef.current.t0) / 240));
+      const r = 14 + n.topic.difficulty * 1.6 + (isHover || isSel ? 4 + pulse * 2.2 : related ? 2 : 0);
 
       const alpha = dimmed ? 0.2 : 1;
       ctx.globalAlpha = alpha;
@@ -178,7 +242,7 @@ export const KnowledgeGraph = ({ topics, subjects, mastery, onSelect, selectedId
       // Glow for hovered/selected
       if (isHover || isSel) {
         ctx.beginPath();
-        ctx.arc(p.x, p.y, r + 12, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, r + 12 + pulse * 4, 0, Math.PI * 2);
         ctx.fillStyle = `${masteryColor(m).replace(")", " / 0.15)")}`;
         ctx.fill();
       }
@@ -216,6 +280,8 @@ export const KnowledgeGraph = ({ topics, subjects, mastery, onSelect, selectedId
       const p = px(n);
       const dimmed = filterSubject && n.topic.subject_id !== filterSubject;
       if (dimmed && !isFocus) return;
+      // De-clutter: hide non-focused labels when zoomed out
+      if (!isFocus && zoom < 0.85) return;
       const r = 14 + n.topic.difficulty * 1.6 + (isFocus ? 4 : 0);
       ctx.font = isFocus ? "600 12px Inter, sans-serif" : "500 10px Inter, sans-serif";
       ctx.textAlign = "center";
@@ -242,9 +308,10 @@ export const KnowledgeGraph = ({ topics, subjects, mastery, onSelect, selectedId
     (canvas as any)._px = px;
     (canvas as any)._zoom = zoom;
     (canvas as any)._pan = pan;
-  }, [positioned, masteryMap, hover, selectedId, zoom, pan, filterSubject]);
+  }, [positioned, masteryMap, hover, selectedId, zoom, pan, filterSubject, computeLayout, reducedMotion]);
 
   useEffect(() => {
+    animRef.current.t0 = performance.now();
     draw();
     const onResize = () => draw();
     window.addEventListener("resize", onResize);
@@ -263,65 +330,111 @@ export const KnowledgeGraph = ({ topics, subjects, mastery, onSelect, selectedId
         });
         return;
       }
-      const rect = canvas.getBoundingClientRect();
-      const mx = (e.clientX - rect.left - pan.x) / zoom;
-      const my = (e.clientY - rect.top - pan.y) / zoom;
-      const pxFn = (canvas as any)._px as (n: Node) => { x: number; y: number };
-      if (!pxFn) return;
-      let found: string | null = null;
-      for (const n of positioned.nodes) {
-        const p = pxFn(n);
-        const r = 14 + n.topic.difficulty * 1.6 + 6;
-        if ((p.x - mx) ** 2 + (p.y - my) ** 2 <= r * r) { found = n.id; break; }
-      }
+      const foundNode = hitTest(e.clientX, e.clientY);
+      const found = foundNode?.id ?? null;
       if (found !== hover) setHover(found);
-      canvas.style.cursor = found ? "pointer" : isPanning ? "grabbing" : "grab";
+      if (found) {
+        const rect = canvas.getBoundingClientRect();
+        setHoverPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+      } else if (hoverPos) {
+        setHoverPos(null);
+      }
+      canvas.style.cursor = found ? "pointer" : "grab";
     };
 
     const onClick = (e: MouseEvent) => {
       if (isPanning) return;
-      const rect = canvas.getBoundingClientRect();
-      const mx = (e.clientX - rect.left - pan.x) / zoom;
-      const my = (e.clientY - rect.top - pan.y) / zoom;
-      const pxFn = (canvas as any)._px as (n: Node) => { x: number; y: number };
-      if (!pxFn) return;
-      for (const n of positioned.nodes) {
-        const p = pxFn(n);
-        const r = 14 + n.topic.difficulty * 1.6 + 6;
-        if ((p.x - mx) ** 2 + (p.y - my) ** 2 <= r * r) { onSelect(n.topic); return; }
-      }
+      const foundNode = hitTest(e.clientX, e.clientY);
+      if (foundNode) onSelect(foundNode.topic);
     };
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      const wrap = wrapRef.current;
+      if (!wrap) return;
+      const rect = canvas.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      setZoom(z => Math.max(0.3, Math.min(3, z * delta)));
+      const nextZoom = Math.max(0.3, Math.min(3, zoom * delta));
+      const k = nextZoom / zoom;
+      // Cursor-centered zoom: keep point under cursor stable
+      setPan({ x: cx - (cx - pan.x) * k, y: cy - (cy - pan.y) * k });
+      setZoom(nextZoom);
+      animRef.current.settlingUntil = performance.now() + 400;
     };
 
     const onMouseDown = (e: MouseEvent) => {
-      if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+      const onNode = !!hitTest(e.clientX, e.clientY);
+      // Pan with middle mouse, Shift+drag, or drag empty space.
+      if (e.button === 1 || (e.button === 0 && (e.shiftKey || !onNode))) {
         setIsPanning(true);
         panStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+        canvas.style.cursor = "grabbing";
       }
     };
 
-    const onMouseUp = () => setIsPanning(false);
+    const onMouseUp = () => {
+      setIsPanning(false);
+      canvas.style.cursor = hover ? "pointer" : "grab";
+    };
+
+    const onDblClick = (e: MouseEvent) => {
+      const node = hitTest(e.clientX, e.clientY);
+      if (node) {
+        focusTopic(node.id);
+        onSelect(node.topic);
+        return;
+      }
+      // Reset view
+      animateTo({ x: 0, y: 0 }, 1);
+    };
 
     canvas.addEventListener("mousemove", onMove);
     canvas.addEventListener("click", onClick);
     canvas.addEventListener("wheel", onWheel, { passive: false });
     canvas.addEventListener("mousedown", onMouseDown);
+    canvas.addEventListener("dblclick", onDblClick);
     window.addEventListener("mouseup", onMouseUp);
     return () => {
       canvas.removeEventListener("mousemove", onMove);
       canvas.removeEventListener("click", onClick);
       canvas.removeEventListener("wheel", onWheel);
       canvas.removeEventListener("mousedown", onMouseDown);
+      canvas.removeEventListener("dblclick", onDblClick);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [positioned, hover, selectedId, onSelect, zoom, pan, isPanning]);
+  }, [positioned, hover, selectedId, onSelect, zoom, pan, isPanning, hitTest, focusTopic, animateTo]);
+
+  // Animation loop (only when needed)
+  useEffect(() => {
+    if (reducedMotion) return;
+    const tick = (now: number) => {
+      const active = isPanning || !!hover || !!selectedId || now < animRef.current.settlingUntil;
+      if (active) draw(now);
+      animRef.current.raf = requestAnimationFrame(tick);
+    };
+    animRef.current.raf = requestAnimationFrame(tick);
+    return () => {
+      if (animRef.current.raf) cancelAnimationFrame(animRef.current.raf);
+    };
+  }, [draw, hover, isPanning, reducedMotion, selectedId]);
 
   const uniqueSubjects = [...new Set(topics.map(t => t.subject_id))];
+  const filteredTopics = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return topics
+      .filter((t) => (!filterSubject ? true : t.subject_id === filterSubject))
+      .filter((t) => (!q ? true : `${t.name} ${t.slug}`.toLowerCase().includes(q)));
+  }, [topics, filterSubject, query]);
+
+  useEffect(() => {
+    // Keep hover valid when filtering
+    if (hover && !filteredTopics.some((t) => t.id === hover)) {
+      setHover(null);
+      setHoverPos(null);
+    }
+  }, [filteredTopics, hover]);
 
   return (
     <div ref={wrapRef} className="relative w-full h-[640px] glass-card rounded-xl overflow-hidden">
@@ -329,37 +442,68 @@ export const KnowledgeGraph = ({ topics, subjects, mastery, onSelect, selectedId
 
       {/* Controls */}
       <div className="absolute top-4 left-4 flex flex-col gap-2">
-        <div className="text-[0.65rem] tracking-[0.3em] uppercase text-ink-soft mb-1">
-          Knowledge Graph
-        </div>
-        {/* Subject filter */}
-        <div className="flex flex-wrap gap-1">
-          <button
-            onClick={() => setFilterSubject(null)}
-            className={`text-[0.6rem] tracking-wider uppercase px-2 py-1 rounded border transition-all ${
-              !filterSubject ? "border-terracotta bg-terracotta/10 text-terracotta" : "border-rule/40 text-ink-soft hover:border-ink/40"
-            }`}
-          >All</button>
-          {uniqueSubjects.map(sid => {
-            const sub = subjectMap.get(sid);
-            return (
+        <button
+          onClick={() => setControlsOpen((v) => !v)}
+          className="flex items-center gap-2 text-[0.65rem] tracking-[0.3em] uppercase text-ink-soft hover:text-ink transition-colors"
+          aria-expanded={controlsOpen}
+        >
+          Knowledge Graph <span className="text-ink-soft/60 tracking-normal">{controlsOpen ? "▾" : "▸"}</span>
+        </button>
+
+        {controlsOpen && (
+          <div className="glass-card rounded-xl p-3 w-[280px] space-y-2">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search topics…"
+              className="w-full bg-paper/60 border border-rule/50 rounded-lg px-3 py-2 text-sm text-ink placeholder:text-ink-soft/50 focus:outline-none focus:border-terracotta/60"
+            />
+
+            <div className="flex items-center gap-2">
+              <select
+                value={filterSubject ?? ""}
+                onChange={(e) => setFilterSubject(e.target.value ? e.target.value : null)}
+                className="flex-1 bg-paper/60 border border-rule/50 rounded-lg px-2 py-2 text-xs text-ink-soft focus:outline-none focus:border-terracotta/60"
+              >
+                <option value="">All subjects</option>
+                {uniqueSubjects.map((sid) => (
+                  <option key={sid} value={sid}>{subjectMap.get(sid)?.name ?? sid}</option>
+                ))}
+              </select>
               <button
-                key={sid}
-                onClick={() => setFilterSubject(filterSubject === sid ? null : sid)}
-                className={`text-[0.6rem] tracking-wider uppercase px-2 py-1 rounded border transition-all ${
-                  filterSubject === sid ? "border-terracotta bg-terracotta/10 text-terracotta" : "border-rule/40 text-ink-soft hover:border-ink/40"
-                }`}
-              >{sub?.name ?? sid}</button>
-            );
-          })}
-        </div>
+                onClick={() => { setQuery(""); setFilterSubject(null); }}
+                className="px-2 py-2 rounded-lg border border-rule/40 text-[0.65rem] tracking-widest uppercase text-ink-soft hover:text-ink hover:border-ink/40 transition-colors"
+                title="Clear filters"
+              >
+                Clear
+              </button>
+            </div>
+
+            {query.trim() && (
+              <div className="max-h-40 overflow-auto custom-scrollbar pr-1">
+                {filteredTopics.slice(0, 10).map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => { focusTopic(t.id); onSelect(t); }}
+                    className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-ink/5 transition-colors"
+                  >
+                    <div className="text-xs text-ink">{t.name}</div>
+                    <div className="text-[0.65rem] text-ink-soft/70 tracking-widest uppercase">
+                      {subjectMap.get(t.subject_id)?.name ?? t.subject_id}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Zoom controls */}
       <div className="absolute top-4 right-4 flex flex-col gap-1">
-        <button onClick={() => setZoom(z => Math.min(3, z * 1.2))} className="w-8 h-8 glass-card rounded-lg flex items-center justify-center text-ink hover:text-terracotta transition-colors text-sm font-bold">+</button>
-        <button onClick={() => setZoom(z => Math.max(0.3, z * 0.8))} className="w-8 h-8 glass-card rounded-lg flex items-center justify-center text-ink hover:text-terracotta transition-colors text-sm font-bold">−</button>
-        <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="w-8 h-8 glass-card rounded-lg flex items-center justify-center text-ink-soft hover:text-terracotta transition-colors text-[0.6rem]" title="Reset view">⟳</button>
+        <button onClick={() => animateTo(pan, Math.min(3, zoom * 1.2))} className="w-8 h-8 glass-card rounded-lg flex items-center justify-center text-ink hover:text-terracotta transition-colors text-sm font-bold" title="Zoom in">+</button>
+        <button onClick={() => animateTo(pan, Math.max(0.3, zoom * 0.8))} className="w-8 h-8 glass-card rounded-lg flex items-center justify-center text-ink hover:text-terracotta transition-colors text-sm font-bold" title="Zoom out">−</button>
+        <button onClick={() => animateTo({ x: 0, y: 0 }, 1)} className="w-8 h-8 glass-card rounded-lg flex items-center justify-center text-ink-soft hover:text-terracotta transition-colors text-[0.6rem]" title="Reset view">⟳</button>
       </div>
 
       {/* Legend */}
@@ -378,17 +522,20 @@ export const KnowledgeGraph = ({ topics, subjects, mastery, onSelect, selectedId
 
       {/* Interaction hint */}
       <div className="absolute bottom-4 right-4 text-[0.6rem] text-ink-soft/50">
-        Scroll to zoom · Shift+drag to pan · Click to inspect
+        Scroll to zoom · Drag empty space to pan · Click node to inspect · Double‑click to focus
       </div>
 
       {/* Hover tooltip */}
-      {hover && (() => {
+      {hover && hoverPos && (() => {
         const t = topics.find((x) => x.id === hover);
         const sub = t && subjectMap.get(t.subject_id);
         if (!t) return null;
         const m = masteryMap.get(t.id) ?? 0;
+        const tipW = 320;
+        const tipX = Math.min(Math.max(12, hoverPos.x + 14), (wrapRef.current?.clientWidth ?? 0) - tipW - 12);
+        const tipY = Math.max(12, hoverPos.y - 12);
         return (
-          <div className="absolute top-4 right-14 max-w-xs glass-card rounded-xl p-4">
+          <div className="absolute max-w-xs glass-card rounded-xl p-4 pointer-events-none" style={{ left: tipX, top: tipY }}>
             <p className="text-[0.6rem] tracking-[0.3em] uppercase text-terracotta">{sub?.name}</p>
             <p className="serif text-xl text-ink mt-1">{t.name}</p>
             <p className="text-xs text-ink-soft mt-2 leading-relaxed">{t.description}</p>

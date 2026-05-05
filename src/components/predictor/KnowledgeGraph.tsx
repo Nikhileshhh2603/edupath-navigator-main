@@ -65,6 +65,7 @@ export function KnowledgeGraph({ subjectKey, knownTopics }: KnowledgeGraphProps)
   const svgRef = useRef<SVGSVGElement>(null);
   const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [hoverId, setHoverId] = useState<string | null>(null);
 
   const buildGraph = useCallback(() => {
     if (!svgRef.current) return;
@@ -100,13 +101,13 @@ export function KnowledgeGraph({ subjectKey, knownTopics }: KnowledgeGraphProps)
       .attr("d", "M0,-5L10,0L0,5")
       .attr("fill", "rgba(0,0,0,0.15)");
 
+    const g = svg.append("g");
+
     // Zoom behavior
     const zoom = d3.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.25, 3])
       .on("zoom", (event) => g.attr("transform", event.transform));
     svg.call(zoom);
-
-    const g = svg.append("g");
 
     // Simulation
     const simulation = d3.forceSimulation<GraphNode>(nodes)
@@ -123,7 +124,8 @@ export function KnowledgeGraph({ subjectKey, knownTopics }: KnowledgeGraphProps)
       .join("line")
       .attr("stroke", "rgba(0,0,0,0.15)")
       .attr("stroke-width", 1)
-      .attr("marker-end", "url(#arrow)");
+      .attr("marker-end", "url(#arrow)")
+      .style("transition", "stroke 200ms ease, stroke-width 200ms ease, opacity 200ms ease");
 
     // Node groups
     const nodeG = g.append("g").attr("class", "nodes")
@@ -151,7 +153,7 @@ export function KnowledgeGraph({ subjectKey, knownTopics }: KnowledgeGraphProps)
       .attr("stroke", (d) => d.state === "unlearned" ? "rgba(0,0,0,0.2)" : "transparent")
       .attr("stroke-width", 1)
       .attr("filter", (d) => d.state !== "unlearned" ? `url(#glow-${d.state})` : "")
-      .style("transition", "all 0.3s ease");
+      .style("transition", "transform 200ms ease, r 200ms ease, opacity 200ms ease, stroke 200ms ease");
 
     // Label
     nodeG.append("text")
@@ -169,12 +171,16 @@ export function KnowledgeGraph({ subjectKey, knownTopics }: KnowledgeGraphProps)
       .on("mouseenter", (event, d) => {
         const rect = svgRef.current!.getBoundingClientRect();
         setTooltip({ text: `${d.label} — ${d.state.toUpperCase()}`, x: event.clientX - rect.left, y: event.clientY - rect.top - 10 });
+        setHoverId(d.id);
       })
       .on("mousemove", (event) => {
         const rect = svgRef.current!.getBoundingClientRect();
         setTooltip((prev) => prev ? { ...prev, x: event.clientX - rect.left, y: event.clientY - rect.top - 10 } : null);
       })
-      .on("mouseleave", () => setTooltip(null));
+      .on("mouseleave", () => {
+        setTooltip(null);
+        setHoverId(null);
+      });
 
     // Tick
     simulation.on("tick", () => {
@@ -197,6 +203,38 @@ export function KnowledgeGraph({ subjectKey, knownTopics }: KnowledgeGraphProps)
     const cleanup = buildGraph();
     return cleanup;
   }, [buildGraph]);
+
+  // Neighbor highlight (kept outside buildGraph to avoid rebuilding the simulation)
+  useEffect(() => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+    const nodeSel = svg.selectAll<SVGGElement, GraphNode>("g.nodes > g");
+    const linkSel = svg.selectAll<SVGLineElement, GraphLink>("g.links > line");
+
+    if (!hoverId) {
+      nodeSel.style("opacity", 1);
+      nodeSel.select("circle").attr("r", (d) => d.radius);
+      linkSel.style("opacity", 1).attr("stroke-width", 1).attr("stroke", "rgba(0,0,0,0.15)");
+      return;
+    }
+
+    const neighbor = new Set<string>([hoverId]);
+    linkSel.each((d) => {
+      const s = (d.source as GraphNode).id;
+      const t = (d.target as GraphNode).id;
+      if (s === hoverId || t === hoverId) {
+        neighbor.add(s);
+        neighbor.add(t);
+      }
+    });
+
+    nodeSel.style("opacity", (d) => (neighbor.has(d.id) ? 1 : 0.25));
+    nodeSel.select("circle").attr("r", (d) => (d.id === hoverId ? d.radius + 4 : d.radius));
+    linkSel
+      .style("opacity", (d) => (((d.source as GraphNode).id === hoverId || (d.target as GraphNode).id === hoverId) ? 1 : 0.18))
+      .attr("stroke-width", (d) => (((d.source as GraphNode).id === hoverId || (d.target as GraphNode).id === hoverId) ? 2 : 1))
+      .attr("stroke", (d) => (((d.source as GraphNode).id === hoverId || (d.target as GraphNode).id === hoverId) ? "hsla(var(--terracotta), 0.55)" : "rgba(0,0,0,0.15)"));
+  }, [hoverId]);
 
   // Rebuild on container resize
   useEffect(() => {
