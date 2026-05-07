@@ -10,13 +10,13 @@ export function StudentDashboard({ topics, mastery }: { topics: Topic[], mastery
   // Proactive Study Path: Find the weakest prerequisite chain
   // 1. Find topics with lowest mastery
   // 2. Identify prerequisites for that topic
-  
+
   const getWeakestTopic = () => {
     if (!topics.length) return null;
     const masteryMap = new Map(mastery.map(m => [m.topic_id, m.mastery]));
     let weakest = topics[0];
     let minMastery = 100;
-    
+
     for (const t of topics) {
       const m = masteryMap.get(t.id) || 0;
       if (m < minMastery) {
@@ -37,7 +37,7 @@ export function StudentDashboard({ topics, mastery }: { topics: Topic[], mastery
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Proactive Study Path Card */}
         <div className="col-span-1 lg:col-span-2 bg-sage/10 border border-sage/20 rounded-lg p-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
@@ -50,7 +50,7 @@ export function StudentDashboard({ topics, mastery }: { topics: Topic[], mastery
           <p className="text-ink-soft mb-6 max-w-lg">
             Based on your knowledge graph topology, we found a critical weakness in your prerequisite chain.
           </p>
-          
+
           {weakestTopic ? (
             <div className="bg-paper p-4 rounded-md border border-ink/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
@@ -73,14 +73,14 @@ export function StudentDashboard({ topics, mastery }: { topics: Topic[], mastery
         <div className="col-span-1 bg-paper border border-ink/10 rounded-lg p-6">
           <h2 className="font-bold text-ink mb-1">Weekly Pulse Check</h2>
           <p className="text-xs text-ink-soft mb-4">How's studying going this week?</p>
-          
+
           <div className="flex justify-between items-center mb-4">
             {[
               { icon: <Frown className="w-8 h-8 text-terracotta" />, val: 1 },
               { icon: <Meh className="w-8 h-8 text-amber-500" />, val: 3 },
               { icon: <Smile className="w-8 h-8 text-sage" />, val: 5 }
             ].map(emoji => (
-              <button 
+              <button
                 key={emoji.val}
                 onClick={() => handlePulseSubmit(emoji.val)}
                 className={`p-2 rounded-full transition-transform hover:scale-110 ${pulse === emoji.val ? 'bg-ink/10 ring-2 ring-ink/20' : ''}`}
