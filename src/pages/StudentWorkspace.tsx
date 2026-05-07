@@ -138,7 +138,7 @@ export default function StudentWorkspace() {
           currentMastery={masteryFor(selected?.id)}
           onClose={() => setDrawerOpen(false)}
           onSaved={load}
-          onAskAI={(t) => { setSelected(t); setTab("assistant"); }}
+          onAskAI={(t) => { setSelected(t); window.location.href = "/student/ai"; }}
         />
       )}
     </main>

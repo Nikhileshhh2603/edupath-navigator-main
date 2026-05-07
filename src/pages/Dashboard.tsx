@@ -1,103 +1,116 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useTheme } from "@/hooks/use-theme";
+import { Users, ShieldAlert, BookOpen, Briefcase, TrendingUp, CalendarDays, HeartPulse, Megaphone } from "lucide-react";
 import { Link } from "react-router-dom";
 
-export default function Dashboard({ role }: { role: "student" | "teacher" | "admin" }) {
-  const { user, signOut } = useAuth();
-  const { theme, toggle: toggleTheme } = useTheme();
+export default function Dashboard({ role }: { role: "teacher" | "admin" }) {
+  const { user } = useAuth();
 
-  const config: Record<string, { title: string; subtitle: string; features: { icon: string; label: string; desc: string }[] }> = {
-    teacher: {
-      title: "Teacher Console",
-      subtitle: "Curate curricula, monitor cohort risk, and respond to AI insights.",
-      features: [
-        { icon: "📊", label: "Cohort Analytics", desc: "View aggregate mastery and risk across all your students in real-time." },
-        { icon: "🗺️", label: "Curriculum Builder", desc: "Design and modify knowledge graphs for your courses." },
-        { icon: "⚡", label: "Risk Alerts", desc: "Get notified when students cross risk thresholds." },
-        { icon: "💬", label: "AI Insights", desc: "Review AI-generated learning stories and recommendations." },
-        { icon: "📝", label: "Assignment Tracker", desc: "Monitor submission rates and identify struggling students." },
-        { icon: "📈", label: "Progress Reports", desc: "Generate detailed progress reports for parent meetings." },
-      ],
-    },
-    admin: {
-      title: "Admin Control Room",
-      subtitle: "Manage users, roles, and platform health.",
-      features: [
-        { icon: "👥", label: "User Management", desc: "Add, remove, and manage user accounts and roles." },
-        { icon: "🔒", label: "Access Control", desc: "Configure permissions and role-based access." },
-        { icon: "📊", label: "Platform Analytics", desc: "Monitor usage metrics and system performance." },
-        { icon: "🏫", label: "School Settings", desc: "Configure institutional settings and branding." },
-        { icon: "📋", label: "Audit Logs", desc: "Review all system activities and changes." },
-        { icon: "⚙️", label: "System Config", desc: "Manage integrations, API keys, and system settings." },
-      ],
-    },
-    student: {
-      title: "Student Workspace",
-      subtitle: "Your knowledge graph, risk score, and AI study assistant.",
-      features: [],
-    },
-  };
-
-  const { title, subtitle, features } = config[role];
-
-  return (
-    <main className="min-h-screen paper-bg page-enter">
-      <header className="border-b border-rule/60 bg-paper/80 backdrop-blur sticky top-0 z-40">
-        <div className="flex items-center justify-between max-w-[1300px] mx-auto px-6 md:px-12 py-4">
-          <Link to="/" className="serif text-2xl text-ink">
-            EduGraph<span className="text-terracotta">.</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <button onClick={toggleTheme} className="theme-toggle" aria-label="Toggle theme">
-              {theme === "dark" ? "☀️" : "🌙"}
-            </button>
-            <span className="text-sm text-ink-soft hidden md:inline">{user?.email}</span>
-            <span className="badge badge-terracotta">{role}</span>
-            <button onClick={signOut} className="oval-btn text-xs px-4 py-2">Sign Out</button>
-          </div>
+  if (role === "teacher") {
+    return (
+      <div className="space-y-6 page-enter">
+        <div>
+          <h1 className="text-2xl font-bold text-ink">Teacher Dashboard</h1>
+          <p className="text-ink-soft text-sm mt-1">Welcome back, {user?.email?.split("@")[0] || "Teacher"}.</p>
         </div>
-      </header>
 
-      <section className="max-w-[1300px] mx-auto px-6 md:px-12 mt-16 text-center">
-        <p className="eyebrow mb-4">Plate № 0{role === "admin" ? 3 : role === "teacher" ? 2 : 1}</p>
-        <h1 className="serif text-5xl md:text-7xl text-ink leading-[0.95]">
-          {title.split(" ").map((w, i) => (
-            <span key={i} className={i === 1 ? "italic text-terracotta" : ""}>{w} </span>
-          ))}
-        </h1>
-        <p className="mt-6 text-ink-soft max-w-xl mx-auto leading-relaxed">{subtitle}</p>
-      </section>
-
-      {features.length > 0 && (
-        <section className="max-w-[1300px] mx-auto px-6 md:px-12 mt-16 mb-20">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((f, i) => (
-              <div
-                key={i}
-                className="glass-card rounded-xl p-6 count-up cursor-default"
-                style={{ animationDelay: `${i * 0.08}s` }}
-              >
-                <span className="text-3xl mb-3 block">{f.icon}</span>
-                <h3 className="serif text-xl text-ink mb-2">{f.label}</h3>
-                <p className="text-sm text-ink-soft leading-relaxed">{f.desc}</p>
-                <div className="mt-4 h-1.5 bg-rule/30 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-terracotta/40 rounded-full progress-animate"
-                    style={{ width: `${30 + Math.random() * 50}%`, animationDelay: `${0.3 + i * 0.1}s` }}
-                  />
-                </div>
-                <p className="text-[0.6rem] tracking-[0.2em] uppercase text-ink-soft/60 mt-2">Coming Soon</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: "Total Students", value: "64", icon: Users, color: "text-ink" },
+            { label: "At Risk", value: "8", icon: ShieldAlert, color: "text-terracotta" },
+            { label: "Avg Mastery", value: "62%", icon: TrendingUp, color: "text-sage" },
+            { label: "Pulse Critical", value: "3", icon: HeartPulse, color: "text-terracotta" },
+          ].map((s, i) => (
+            <div key={i} className="bg-paper border border-ink/10 rounded-lg p-4 count-up" style={{ animationDelay: `${i * 0.08}s` }}>
+              <div className="flex items-center gap-2 mb-2">
+                <s.icon className="w-4 h-4 text-ink-soft" />
+                <p className="text-xs text-ink-soft font-medium uppercase tracking-wider">{s.label}</p>
               </div>
-            ))}
-          </div>
+              <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
+            </div>
+          ))}
+        </div>
 
-          <div className="text-center mt-12">
-            <Link to="/predictor" className="oval-btn">
-              Try Student Predictor →
-            </Link>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Link to="/teacher/roster" className="block bg-paper border border-ink/10 rounded-lg p-6 hover:border-sage/40 hover:shadow-sm transition-all group">
+            <h2 className="font-semibold text-ink group-hover:text-sage transition-colors flex items-center gap-2">
+              <Users className="w-5 h-5" /> Risk-Sorted Roster
+            </h2>
+            <p className="text-sm text-ink-soft mt-2">View all students sorted by risk score with pulse indicators.</p>
+          </Link>
+          <Link to="/teacher/mentees" className="block bg-paper border border-ink/10 rounded-lg p-6 hover:border-sage/40 hover:shadow-sm transition-all group">
+            <h2 className="font-semibold text-ink group-hover:text-sage transition-colors flex items-center gap-2">
+              <HeartPulse className="w-5 h-5" /> My Mentees
+            </h2>
+            <p className="text-sm text-ink-soft mt-2">Monitor assigned mentees and schedule sessions.</p>
+          </Link>
+          <Link to="/teacher/assignments" className="block bg-paper border border-ink/10 rounded-lg p-6 hover:border-sage/40 hover:shadow-sm transition-all group">
+            <h2 className="font-semibold text-ink group-hover:text-sage transition-colors flex items-center gap-2">
+              <BookOpen className="w-5 h-5" /> Assignment Tracker
+            </h2>
+            <p className="text-sm text-ink-soft mt-2">Track submissions, grade, and identify struggling students.</p>
+          </Link>
+          <Link to="/teacher/graph" className="block bg-paper border border-ink/10 rounded-lg p-6 hover:border-sage/40 hover:shadow-sm transition-all group">
+            <h2 className="font-semibold text-ink group-hover:text-sage transition-colors flex items-center gap-2">
+              <TrendingUp className="w-5 h-5" /> Class Knowledge Graph
+            </h2>
+            <p className="text-sm text-ink-soft mt-2">Visualize aggregate mastery across your cohort.</p>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Admin dashboard
+  return (
+    <div className="space-y-6 page-enter">
+      <div>
+        <h1 className="text-2xl font-bold text-ink">Admin Control Room</h1>
+        <p className="text-ink-soft text-sm mt-1">Manage users, departments, and platform health.</p>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: "Total Users", value: "1,296", icon: Users, color: "text-ink" },
+          { label: "Departments", value: "8", icon: Briefcase, color: "text-ink" },
+          { label: "Active Semester", value: "Spring '26", icon: CalendarDays, color: "text-sage" },
+          { label: "Announcements", value: "5", icon: Megaphone, color: "text-ink" },
+        ].map((s, i) => (
+          <div key={i} className="bg-paper border border-ink/10 rounded-lg p-4 count-up" style={{ animationDelay: `${i * 0.08}s` }}>
+            <div className="flex items-center gap-2 mb-2">
+              <s.icon className="w-4 h-4 text-ink-soft" />
+              <p className="text-xs text-ink-soft font-medium uppercase tracking-wider">{s.label}</p>
+            </div>
+            <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
           </div>
-        </section>
-      )}
-    </main>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Link to="/admin/users" className="block bg-paper border border-ink/10 rounded-lg p-6 hover:border-sage/40 hover:shadow-sm transition-all group">
+          <h2 className="font-semibold text-ink group-hover:text-sage transition-colors flex items-center gap-2">
+            <Users className="w-5 h-5" /> User & Mentor Management
+          </h2>
+          <p className="text-sm text-ink-soft mt-2">Add, remove, and assign mentors to students.</p>
+        </Link>
+        <Link to="/admin/departments" className="block bg-paper border border-ink/10 rounded-lg p-6 hover:border-sage/40 hover:shadow-sm transition-all group">
+          <h2 className="font-semibold text-ink group-hover:text-sage transition-colors flex items-center gap-2">
+            <Briefcase className="w-5 h-5" /> Departments
+          </h2>
+          <p className="text-sm text-ink-soft mt-2">Configure departments and their resource allocations.</p>
+        </Link>
+        <Link to="/admin/semesters" className="block bg-paper border border-ink/10 rounded-lg p-6 hover:border-sage/40 hover:shadow-sm transition-all group">
+          <h2 className="font-semibold text-ink group-hover:text-sage transition-colors flex items-center gap-2">
+            <CalendarDays className="w-5 h-5" /> Semesters
+          </h2>
+          <p className="text-sm text-ink-soft mt-2">Manage academic periods and calendars.</p>
+        </Link>
+        <Link to="/admin/announcements" className="block bg-paper border border-ink/10 rounded-lg p-6 hover:border-sage/40 hover:shadow-sm transition-all group">
+          <h2 className="font-semibold text-ink group-hover:text-sage transition-colors flex items-center gap-2">
+            <Megaphone className="w-5 h-5" /> Announcements
+          </h2>
+          <p className="text-sm text-ink-soft mt-2">Broadcast messages to students and faculty.</p>
+        </Link>
+      </div>
+    </div>
   );
 }

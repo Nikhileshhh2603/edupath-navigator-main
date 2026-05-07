@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { Topic, logAssessment, masteryColor } from "@/lib/edugraph";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
+import MDEditor from '@uiw/react-md-editor';
 
 interface Props {
   topic: Topic | null;
@@ -13,24 +16,44 @@ interface Props {
 }
 
 export const TopicDrawer = ({ topic, topics, userId, currentMastery, onClose, onSaved, onAskAI }: Props) => {
+  const { role } = useAuth();
   const [score, setScore] = useState(currentMastery || 50);
   const [notes, setNotes] = useState("");
+  const [topicNotes, setTopicNotes] = useState("");
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<"info" | "notes" | "edit">("info");
 
-  // Reset score when topic changes
   useEffect(() => {
     setScore(currentMastery || 50);
     setNotes("");
+    if (topic) fetchTopicNotes(topic.id);
   }, [topic?.id, currentMastery]);
 
-  // Close on Escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  const fetchTopicNotes = async (id: string) => {
+    const { data, error } = await supabase.from("topic_notes").select("content").eq("topic_id", id).maybeSingle();
+    if (data) setTopicNotes(data.content);
+    else setTopicNotes("");
+  };
+
+  const saveTeacherNotes = async () => {
+    if (!topic) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase.from("topic_notes").upsert({
+        topic_id: topic.id,
+        content: topicNotes,
+        title: topic.name,
+        created_by: userId
+      }, { onConflict: "topic_id" });
+      if (error) throw error;
+      toast.success("Notes saved for the class!");
+      setTab("notes");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (!topic) return null;
   const prereqs = topic.prerequisite_ids
@@ -61,7 +84,7 @@ export const TopicDrawer = ({ topic, topics, userId, currentMastery, onClose, on
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
       <div className="absolute inset-0 bg-ink/30 backdrop-blur-sm fade-in" />
       <div
-        className="relative w-full max-w-lg h-full bg-paper border-l border-rule overflow-y-auto slide-in-right custom-scrollbar"
+        className="relative w-full max-w-xl h-full bg-paper border-l border-rule overflow-y-auto slide-in-right custom-scrollbar"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-8 py-6 border-b border-rule/60 flex items-start justify-between sticky top-0 bg-paper/95 backdrop-blur-sm z-10">
@@ -85,91 +108,109 @@ export const TopicDrawer = ({ topic, topics, userId, currentMastery, onClose, on
           </button>
         </div>
 
+        {/* Tabs */}
+        <div className="px-8 mt-4 flex gap-6 border-b border-rule/30">
+          <button onClick={() => setTab("info")} className={`pb-2 text-sm font-medium transition-colors ${tab === "info" ? "text-terracotta border-b-2 border-terracotta" : "text-ink-soft hover:text-ink"}`}>Info</button>
+          <button onClick={() => setTab("notes")} className={`pb-2 text-sm font-medium transition-colors ${tab === "notes" ? "text-terracotta border-b-2 border-terracotta" : "text-ink-soft hover:text-ink"}`}>Study Notes</button>
+          {(role === "teacher" || role === "admin") && (
+            <button onClick={() => setTab("edit")} className={`pb-2 text-sm font-medium transition-colors ${tab === "edit" ? "text-terracotta border-b-2 border-terracotta" : "text-ink-soft hover:text-ink"}`}>Edit Notes</button>
+          )}
+        </div>
+
         <div className="px-8 py-6 space-y-6">
-          <p className="text-sm text-ink-soft leading-relaxed">{topic.description}</p>
+          {tab === "info" && (
+            <>
+              <p className="text-sm text-ink-soft leading-relaxed">{topic.description}</p>
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <p className="text-[0.6rem] tracking-[0.2em] uppercase text-ink-soft mb-1.5">Current Mastery</p>
+                  <div className="h-2 bg-rule/40 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full progress-animate transition-all duration-500"
+                      style={{ width: `${currentMastery}%`, background: masteryColor(currentMastery) }}
+                    />
+                  </div>
+                </div>
+                <span className="serif text-2xl font-medium" style={{ color: masteryColor(currentMastery) }}>
+                  {currentMastery}%
+                </span>
+              </div>
 
-          {/* Current Mastery Display */}
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <p className="text-[0.6rem] tracking-[0.2em] uppercase text-ink-soft mb-1.5">Current Mastery</p>
-              <div className="h-2 bg-rule/40 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full progress-animate transition-all duration-500"
-                  style={{ width: `${currentMastery}%`, background: masteryColor(currentMastery) }}
+              {prereqs.length > 0 && (
+                <div>
+                  <p className="text-[0.65rem] tracking-[0.3em] uppercase text-ink-soft mb-2">Prerequisites</p>
+                  <div className="flex flex-wrap gap-2">
+                    {prereqs.map((p) => (
+                      <span key={p.id} className="text-xs border border-rule rounded-lg px-3 py-1.5 text-ink">
+                        {p.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="border-t border-rule/60 pt-6">
+                <p className="eyebrow mb-4">Quick check-in</p>
+                <label className="block text-[0.7rem] tracking-[0.28em] uppercase text-ink-soft mb-3">
+                  Self-rated mastery: <span className="serif text-lg font-medium" style={{ color: masteryColor(score) }}>{score}%</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="range" min={0} max={100} value={score}
+                    onChange={(e) => setScore(Number(e.target.value))}
+                    className="w-full accent-[hsl(15_65%_50%)] h-2"
+                  />
+                </div>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value.slice(0, 500))}
+                  placeholder="Optional notes — what's tricky?"
+                  rows={3}
+                  className="mt-4 w-full bg-transparent border border-rule rounded-lg p-3 text-sm text-ink outline-none focus:border-terracotta transition-colors resize-none"
                 />
+                <div className="mt-4 flex gap-3">
+                  <button onClick={save} disabled={busy} className="oval-btn flex-1 justify-center disabled:opacity-50">
+                    {busy ? "Saving…" : "Save check-in"}
+                  </button>
+                  <button onClick={() => { onAskAI(topic); onClose(); }} className="oval-btn oval-btn-solid flex-1 justify-center">🤖 Ask AI</button>
+                </div>
               </div>
-            </div>
-            <span className="serif text-2xl font-medium" style={{ color: masteryColor(currentMastery) }}>
-              {currentMastery}%
-            </span>
-          </div>
+            </>
+          )}
 
-          {prereqs.length > 0 && (
-            <div>
-              <p className="text-[0.65rem] tracking-[0.3em] uppercase text-ink-soft mb-2">
-                Prerequisites ({prereqs.length})
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {prereqs.map((p) => (
-                  <span key={p.id} className="text-xs border border-rule rounded-lg px-3 py-1.5 text-ink hover:border-terracotta hover:text-terracotta transition-colors cursor-default">
-                    {p.name}
-                  </span>
-                ))}
-              </div>
+          {tab === "notes" && (
+            <div className="prose prose-sm max-w-none">
+              {topicNotes ? (
+                <MDEditor.Markdown source={topicNotes} style={{ background: 'transparent', color: 'inherit' }} />
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-ink-soft italic">No study notes available for this topic yet.</p>
+                  {(role === "teacher" || role === "admin") && (
+                    <button onClick={() => setTab("edit")} className="mt-4 text-terracotta hover:underline text-sm font-medium">Write some notes?</button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
-          {dependents.length > 0 && (
-            <div>
-              <p className="text-[0.65rem] tracking-[0.3em] uppercase text-ink-soft mb-2">
-                Unlocks ({dependents.length})
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {dependents.map((d) => (
-                  <span key={d.id} className="text-xs border border-sage/30 bg-sage/5 rounded-lg px-3 py-1.5 text-sage">
-                    {d.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="border-t border-rule/60 pt-6">
-            <p className="eyebrow mb-4">Quick check-in</p>
-            <label className="block text-[0.7rem] tracking-[0.28em] uppercase text-ink-soft mb-3">
-              Self-rated mastery: <span className="serif text-lg font-medium" style={{ color: masteryColor(score) }}>{score}%</span>
-            </label>
-            <div className="relative">
-              <input
-                type="range" min={0} max={100} value={score}
-                onChange={(e) => setScore(Number(e.target.value))}
-                className="w-full accent-[hsl(15_65%_50%)] h-2"
+          {tab === "edit" && (
+            <div className="space-y-4">
+              <MDEditor
+                value={topicNotes}
+                onChange={(v) => setTopicNotes(v || "")}
+                preview="edit"
+                height={400}
+                className="rounded-lg overflow-hidden border border-rule"
               />
-              <div className="flex justify-between text-[0.6rem] text-ink-soft/60 mt-1">
-                <span>No clue</span>
-                <span>Could teach it</span>
-              </div>
-            </div>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value.slice(0, 500))}
-              placeholder="Optional notes — what's tricky?"
-              rows={3}
-              className="mt-4 w-full bg-transparent border border-rule rounded-lg p-3 text-sm text-ink outline-none focus:border-terracotta transition-colors resize-none"
-            />
-            <p className="text-right text-[0.6rem] text-ink-soft/50 mt-1">{notes.length}/500</p>
-            <div className="mt-4 flex gap-3">
-              <button onClick={save} disabled={busy} className="oval-btn flex-1 justify-center disabled:opacity-50">
-                {busy ? "Saving…" : "Save check-in"}
-              </button>
-              <button
-                onClick={() => { onAskAI(topic); onClose(); }}
-                className="oval-btn oval-btn-solid flex-1 justify-center"
+              <button 
+                onClick={saveTeacherNotes} 
+                disabled={busy} 
+                className="oval-btn w-full justify-center disabled:opacity-50"
               >
-                🤖 Ask AI
+                {busy ? "Saving..." : "Save Notes for Class"}
               </button>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

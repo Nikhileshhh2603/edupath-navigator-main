@@ -30,7 +30,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (!loading && user && role) {
-      const dest = role === "admin" ? "/admin" : role === "teacher" ? "/teacher" : "/student";
+      const dest = role === "admin" ? "/admin" : role === "teacher" ? "/teacher" : role === "parent" ? "/parent" : "/student";
       navigate(dest, { replace: true });
     }
   }, [user, role, loading, navigate]);
