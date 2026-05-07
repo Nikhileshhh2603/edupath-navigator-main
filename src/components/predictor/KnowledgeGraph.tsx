@@ -111,10 +111,10 @@ export function KnowledgeGraph({ subjectKey, knownTopics }: KnowledgeGraphProps)
 
     // Simulation
     const simulation = d3.forceSimulation<GraphNode>(nodes)
-      .force("link", d3.forceLink<GraphNode, GraphLink>(links).id((d) => d.id).distance(90).strength(0.6))
-      .force("charge", d3.forceManyBody().strength(-320))
+      .force("link", d3.forceLink<GraphNode, GraphLink>(links).id((d) => d.id).distance(160).strength(0.6))
+      .force("charge", d3.forceManyBody().strength(-800))
       .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collision", d3.forceCollide().radius((d) => (d as GraphNode).radius + 18))
+      .force("collision", d3.forceCollide().radius((d) => (d as GraphNode).radius + 40))
       .alphaDecay(0.025);
 
     // Links

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
@@ -12,12 +12,17 @@ import { RiskAnalyzer } from "@/components/workspace/RiskAnalyzer";
 import { AIAssistant } from "@/components/workspace/AIAssistant";
 import { TopicDrawer } from "@/components/workspace/TopicDrawer";
 
-type Tab = "graph" | "risk" | "assistant";
+import { StudentDashboard } from "@/components/workspace/StudentDashboard";
+
+type Tab = "dashboard" | "graph" | "risk" | "assistant";
 
 export default function StudentWorkspace() {
   const { user, signOut } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
-  const [tab, setTab] = useState<Tab>("graph");
+  const { pathname } = useLocation();
+  const currentPath = pathname.split("/").pop();
+  const tab: Tab = currentPath === "risk" ? "risk" : currentPath === "ai" ? "assistant" : currentPath === "graph" ? "graph" : "dashboard";
+
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [mastery, setMastery] = useState<Mastery[]>([]);
@@ -57,26 +62,7 @@ export default function StudentWorkspace() {
 
   return (
     <main className="min-h-screen paper-bg page-enter">
-      {/* Top bar */}
-      <header className="border-b border-rule/60 bg-paper/80 backdrop-blur sticky top-0 z-40">
-        <div className="max-w-[1500px] mx-auto px-6 md:px-12 py-4 flex items-center justify-between">
-          <Link to="/" className="serif text-xl text-ink">
-            EduGraph<span className="text-terracotta">.</span>
-          </Link>
-          <div className="hidden md:flex items-center gap-6 text-[0.7rem] tracking-[0.3em] uppercase text-ink-soft">
-            <span>Plate № 01 · Student Workspace</span>
-            <span className="text-rule">|</span>
-            <span>Risk <span className={`font-medium ${risk.score >= 70 ? "text-terracotta" : risk.score >= 40 ? "text-amber-600" : "text-sage"}`}>{risk.score}</span>/100</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <button onClick={toggleTheme} className="theme-toggle" aria-label="Toggle theme">
-              {theme === "dark" ? "☀️" : "🌙"}
-            </button>
-            <span className="text-xs text-ink-soft hidden md:inline">{user?.email}</span>
-            <button onClick={signOut} className="oval-btn text-xs px-4 py-2">Sign Out</button>
-          </div>
-        </div>
-      </header>
+      {/* Top bar removed in favor of AppShell/Sidebar */}
 
       {/* Quick Stats Bar */}
       {!loading && (
@@ -108,28 +94,7 @@ export default function StudentWorkspace() {
         </p>
       </section>
 
-      {/* Tab bar */}
-      <nav className="max-w-[1500px] mx-auto px-6 md:px-12 border-b border-rule/60">
-        <div className="flex flex-wrap gap-x-8 gap-y-2">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`group py-3 -mb-px border-b-2 transition-all duration-300 ${
-                tab === t.id ? "border-terracotta text-ink" : "border-transparent text-ink-soft hover:text-ink"
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                <span className="text-base">{t.icon}</span>
-                <span className="serif text-lg">{t.label}</span>
-              </span>
-              <span className="block text-[0.6rem] tracking-[0.3em] uppercase mt-0.5 italic text-ink-soft/80">
-                {t.hint}
-              </span>
-            </button>
-          ))}
-        </div>
-      </nav>
+      {/* Tab bar removed, controlled by Sidebar links now */}
 
       {/* Body */}
       <section className="max-w-[1500px] mx-auto px-6 md:px-12 py-8">
@@ -143,6 +108,8 @@ export default function StudentWorkspace() {
               <div className="skeleton h-32" />
             </div>
           </div>
+        ) : tab === "dashboard" ? (
+          <StudentDashboard topics={topics} mastery={mastery} />
         ) : tab === "graph" ? (
           <KnowledgeGraph
             topics={topics}
